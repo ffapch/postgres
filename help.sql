@@ -12,6 +12,11 @@ select *
 from get_raw_page('t_monobank_rates', 0);
 
 ------------------------------------------------------------------------------------------------config
+select name, current_setting(name), source
+from pg_settings
+where source not in ('default', 'override');
+
+
 show config_file;
 set work_mem to '64 MB';
 select CURRENT_SETTING('work_mem');
@@ -41,12 +46,23 @@ select locktype, relation::REGCLASS, virtualxid, transactionId, mode, granted fr
 select pg_blocking_pids(2728); --processes who blocks our transaction 2728
 select * from pg_stat_activity where pid = any(pg_blocking_pids(2728));
 
+select * from pg_stat_activity;
+
 ------------------------------------------------------------------------------------------------pg_stat_statements monitoring
-create extension pg_stat_statements;
+create extension if not exists pg_stat_statements;
 alter system set shared_preload_libraries = 'pg_stat_statements';
 pg_ctl restart -D /var/lib/postgresql/data
 set pg_stat_statements.track = 'all';
 select pg_stat_statements_reset();
+
+select
+	substring(regexp_replace(query,' +',' ','g') for 55) as query, 
+	calls,
+	round(total_time)/1000 as time_sec,
+	shared_blks_hit + shared_blks_read + shared_blks_written as shared_blks
+from pg_stat_statements
+order by time_sec desc;
+
 select * from pg_class;
 
 -------------------------------------------------------------------------------------------------logging
